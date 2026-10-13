@@ -98,6 +98,10 @@ class OpenAIClient(BaseOpenAIClient):
         if is_reasoning_model and verbosity is not None:
             request_kwargs['text'] = {'verbosity': verbosity}  # type: ignore
 
+        cache_options = self._prompt_cache_options(model)
+        if cache_options is not None:
+            request_kwargs['extra_body'] = {'prompt_cache_options': cache_options}
+
         response = await self.client.responses.parse(**request_kwargs)
 
         return response
@@ -122,8 +126,15 @@ class OpenAIClient(BaseOpenAIClient):
             'max_tokens': max_tokens,
             'response_format': {'type': 'json_object'},
         }
+        if model.startswith('gpt-6'):
+            request_kwargs['max_completion_tokens'] = request_kwargs.pop('max_tokens')
+
         # Omit temperature entirely for reasoning models — don't even send None.
         if not is_reasoning_model and temperature is not None:
             request_kwargs['temperature'] = temperature
+
+        cache_options = self._prompt_cache_options(model)
+        if cache_options is not None:
+            request_kwargs['extra_body'] = {'prompt_cache_options': cache_options}
 
         return await self.client.chat.completions.create(**request_kwargs)
